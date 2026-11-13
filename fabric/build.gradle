@@ -1,0 +1,68 @@
+plugins {
+	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+}
+
+base { archivesName = 'maqueta-fabric' }
+
+repositories {}
+
+loom {
+	runs {
+		client {
+			programArgs '--username', 'MaquetaDev'
+		}
+	}
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${rootProject.minecraft_version}"
+	implementation "net.fabricmc:fabric-loader:${rootProject.loader_version}"
+	implementation "net.fabricmc.fabric-api:fabric-api:${rootProject.fabric_api_version}"
+	implementation project(':core')
+}
+
+processResources {
+	def version = project.version
+	inputs.property 'version', version
+	filesMatching('fabric.mod.json') { expand 'version': version }
+}
+
+java {
+	sourceCompatibility = JavaVersion.VERSION_25
+	targetCompatibility = JavaVersion.VERSION_25
+}
+
+// Ship core classes inside the mod jar (core has no Minecraft deps).
+jar {
+	dependsOn ':core:jar'
+	from(project(':core').sourceSets.main.output)
+}
+
+// Design rule 9.1: no direct OpenGL. Fail the build if anyone imports it.
+tasks.register('checkNoOpenGL') {
+	def srcDirs = sourceSets.main.java.srcDirs
+	inputs.files(srcDirs)
+	doLast {
+		def offenders = []
+		srcDirs.each { dir ->
+			if (!dir.exists()) return
+			dir.eachFileRecurse { f ->
+				if (f.name.endsWith('.java') && f.text.contains('org.lwjgl.opengl')) offenders << f
+			}
+		}
+		if (offenders) throw new GradleException("Direct OpenGL is forbidden (use Blaze3D):\n" + offenders.join('\n'))
+	}
+}
+compileJava.dependsOn checkNoOpenGL
+
+// Real in-game run: boots the client, creates a world, drives the map and lets the
+// game itself take the screenshots (./gradlew :fabric:runClientGameTest).
+fabricApi {
+	configureTests {
+		createSourceSet = true
+		modId = "maqueta-gametest"
+		enableGameTests = false
+		enableClientGameTests = true
+		eula = true
+	}
+}

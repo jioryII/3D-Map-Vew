@@ -1,0 +1,11 @@
+{
+	"schemaVersion": 1,
+	"id": "maqueta-gametest",
+	"version": "1.0.0",
+	"name": "Maqueta in-game captures",
+	"environment": "client",
+	"entrypoints": {
+		"fabric-client-gametest": ["dev.maqueta.gametest.MaquetaCaptureTest"]
+	},
+	"depends": { "maqueta": "*" }
+}

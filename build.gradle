@@ -1,0 +1,8 @@
+subprojects {
+	group = rootProject.maven_group
+	version = rootProject.mod_version
+	tasks.withType(JavaCompile).configureEach {
+		options.release = 25
+		options.encoding = 'UTF-8'
+	}
+}

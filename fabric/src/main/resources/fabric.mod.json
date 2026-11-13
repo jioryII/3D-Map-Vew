@@ -1,0 +1,20 @@
+{
+	"schemaVersion": 1,
+	"id": "maqueta",
+	"version": "${version}",
+	"name": "Maqueta",
+	"description": "3D map and borderless minimap that shows the explored world as a stylised, explorable scale model. GPU-rendered on Minecraft's own render API (OpenGL and Vulkan).",
+	"authors": ["Maqueta contributors"],
+	"license": "MIT",
+	"environment": "client",
+	"entrypoints": {
+		"client": ["dev.maqueta.client.MaquetaClient"]
+	},
+	"mixins": ["maqueta.mixins.json"],
+	"depends": {
+		"fabricloader": ">=0.20.0",
+		"minecraft": ">=26.3",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}
