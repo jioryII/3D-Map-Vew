@@ -29,6 +29,16 @@ public final class CaveMesher {
 	}
 
 	public static Result build(VoxelVolume v, int playerX, int playerY, int playerZ, int cutY, int maxCells, int anchorX, int anchorZ) {
+		return build(v, playerX, playerY, playerZ, cutY, maxCells, anchorX, anchorZ, false);
+	}
+
+	/**
+	 * @param showSurroundings also draw the other caves and the rock section, shaded (like a
+	 *                         geological cut). Off in fair-play mode: then only the connected
+	 *                         space is meshed.
+	 */
+	public static Result build(VoxelVolume v, int playerX, int playerY, int playerZ, int cutY, int maxCells, int anchorX, int anchorZ,
+							   boolean showSurroundings) {
 		byte[] reached = floodFill(v, playerX - v.originX, playerY - v.originY, playerZ - v.originZ, cutY - v.originY, maxCells);
 		int count = 0;
 		for (byte b : reached) count += b;
@@ -46,21 +56,28 @@ public final class CaveMesher {
 					int rgb = Palette.stylize(mat, v.color[i], Palette.variation(wx * 31 + ly, wz) * 0.5f);
 					for (int[] f : FACES) {
 						int nx = lx + f[0], ny = ly + f[1], nz = lz + f[2];
-						boolean open;
+						int flag;
 						if (f[3] == MeshBuilder.N_UP && ly == localCut) {
-							// Cut plane: show the sliced top of solid blocks next to reached air.
-							open = touchesReached(v, reached, lx, ly, lz);
+							// Cut plane: the rock section. Near the player it is part of the scene,
+							// further away it is only drawn as the shaded geological cut.
+							boolean near = touchesReached(v, reached, lx, ly, lz);
+							if (!near && !showSurroundings) continue;
+							flag = MeshBuilder.FLAG_SECTION | (near ? 0 : MeshBuilder.FLAG_UNSEEN);
 						} else {
 							if (!v.inBounds(nx, ny, nz)) continue;
 							int ni = v.index(nx, ny, nz);
-							open = v.material[ni] == 0 && reached[ni] != 0;
+							if (v.material[ni] != 0) continue;
+							if (reached[ni] != 0) flag = 0;
+							else if (showSurroundings) flag = MeshBuilder.FLAG_UNSEEN;
+							else continue;
 						}
-						if (!open) continue;
 						int ni = v.inBounds(nx, ny, nz) ? v.index(nx, ny, nz) : i;
 						float emit = (light[ni] & 0xFF) / 15f;
-						boolean sliced = f[3] == MeshBuilder.N_UP && ly == localCut && (!v.inBounds(nx, ny, nz) || v.material[v.index(nx, ny, nz)] != 0);
-						int faceRgb = sliced ? Palette.shade(rgb, -0.12f) : rgb;
-						emitFace(mb, v, lx, ly, lz, f, faceRgb, emit, anchorX, anchorZ, sliced);
+						boolean sliced = (flag & MeshBuilder.FLAG_SECTION) != 0;
+						int faceRgb = sliced ? Palette.shade(rgb, -0.14f) : rgb;
+						int tile = f[3] == MeshBuilder.N_UP || f[3] == MeshBuilder.N_DOWN ? v.tileTop[i] : v.tileSide[i];
+						mb.texture(tile, mat.ordinal());
+						emitFace(mb, v, lx, ly, lz, f, faceRgb, emit, anchorX, anchorZ, sliced, flag);
 					}
 				}
 			}
@@ -138,10 +155,10 @@ public final class CaveMesher {
 	}
 
 	private static void emitFace(MeshBuilder mb, VoxelVolume v, int lx, int ly, int lz, int[] f, int rgb, float emit,
-								 int anchorX, int anchorZ, boolean sliced) {
+								 int anchorX, int anchorZ, boolean sliced, int extraFlags) {
 		float x = lx + v.originX - anchorX, y = ly + v.originY, z = lz + v.originZ - anchorZ;
 		float[][] quad = faceQuad(f[3]);
-		int code = f[3] | MeshBuilder.FLAG_INSIDE;
+		int code = f[3] | MeshBuilder.FLAG_INSIDE | extraFlags;
 		float[] ao = new float[4];
 		for (int k = 0; k < 4; k++) {
 			ao[k] = sliced ? 0.9f : cornerAo(v, lx, ly, lz, f, quad[k]);

@@ -9,6 +9,8 @@ import java.util.Locale;
 public final class Waypoint {
 	public static final int FLAG_DEATH = 1;
 	public static final int FLAG_HIDDEN = 2;
+	/** Received from another player through chat. */
+	public static final int FLAG_SHARED = 4;
 
 	public String name;
 	public int x, y, z;

@@ -18,9 +18,9 @@ public final class Palette {
 
 	static {
 		ramp(Material.NONE, 0.30f, 0x3A3F4B, 0x555C6B, 0x737B8A, 0x939BA8, 0xB4BAC4, 0xD5D9DF);
-		ramp(Material.GRASS, 0.40f, 0x2F5A2E, 0x3F7A36, 0x56963F, 0x72AE4A, 0x93C460, 0xB8D982);
-		ramp(Material.FOLIAGE, 0.38f, 0x1F4A2C, 0x2A6136, 0x377A3F, 0x4C9447, 0x67AD55, 0x8CC66C);
-		ramp(Material.PLANT, 0.45f, 0x3C6B2F, 0x4E8538, 0x659E43, 0x82B651, 0xA2CB66, 0xC4DD8A);
+		ramp(Material.GRASS, 0.30f, 0x2F5A2E, 0x3F7A36, 0x56963F, 0x72AE4A, 0x93C460, 0xB8D982);
+		ramp(Material.FOLIAGE, 0.26f, 0x1F4A2C, 0x2A6136, 0x377A3F, 0x4C9447, 0x67AD55, 0x8CC66C);
+		ramp(Material.PLANT, 0.35f, 0x3C6B2F, 0x4E8538, 0x659E43, 0x82B651, 0xA2CB66, 0xC4DD8A);
 		ramp(Material.DIRT, 0.35f, 0x4A3326, 0x5F4231, 0x77543D, 0x8F6A4D, 0xA88462, 0xC2A07D);
 		ramp(Material.STONE, 0.30f, 0x4A4E57, 0x5E636C, 0x767B83, 0x8F949A, 0xAAAEB2, 0xC7CACD);
 		ramp(Material.SAND, 0.40f, 0x9C8457, 0xB59C69, 0xCBB27D, 0xDCC593, 0xE8D6AA, 0xF2E5C4);
@@ -93,6 +93,31 @@ public final class Palette {
 		// Never pure black, never pure white.
 		L = clamp(L, 0.22f, 0.95f);
 		return OkLab.toRgb(L, A, B);
+	}
+
+	/**
+	 * Faithful harmonisation: keeps the block's own hue (cherry leaves stay pink, birch stays
+	 * birch) and only calms what would shout: a soft knee on very saturated colours, a little
+	 * lift in the deepest darks and a cap on the highlights, plus a tiny per-position variation.
+	 * Falls back to the curated ramp when the source colour is unknown.
+	 */
+	public static int harmonize(Material material, int sourceRgb, float variation) {
+		if (sourceRgb == 0) return stylize(material, 0, variation);
+		float[] lab = OkLab.fromRgb(sourceRgb);
+		float L = lab[0], a = lab[1], b = lab[2];
+		// Pale foliage (cherry blossom) and flowers keep their tint instead of washing out to white.
+		float maxL = material == Material.FOLIAGE || material == Material.PLANT ? 0.84f : 0.93f;
+		L = clamp(L + variation * 0.022f, 0.20f, maxL);
+		float chroma = (float) Math.sqrt(a * a + b * b);
+		if (chroma > 1e-5f) {
+			float knee = 0.13f;
+			float k = chroma > knee ? knee + (chroma - knee) * 0.7f : chroma;
+			k *= 1.08f; // a touch more colour for the animated look
+			if (material == Material.FOLIAGE && chroma < 0.09f) k = Math.max(k, chroma * 1.35f);
+			a *= k / chroma;
+			b *= k / chroma;
+		}
+		return OkLab.toRgb(L, a, b);
 	}
 
 	/** Shade a colour along its own lightness axis (used for cliff bands, water depth, foam). */

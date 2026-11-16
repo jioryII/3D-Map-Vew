@@ -16,15 +16,15 @@ public final class TimeGrading {
 
 	// dayTime: 0 = sunrise (06:00), 6000 = noon, 12000 = sunset, 18000 = midnight.
 	private static final Key[] KEYS = {
-		new Key(0, rgb(1.00f, 0.66f, 0.42f, 0.90f), rgb(0.50f, 0.45f, 0.66f, 1f), 0.45f, rgb(0.80f, 0.70f, 0.72f, 1f)),
-		new Key(1800, rgb(1.06f, 0.97f, 0.86f, 1.00f), rgb(0.56f, 0.66f, 0.84f, 1f), 0.10f, rgb(0.80f, 0.84f, 0.88f, 1f)),
-		new Key(6000, rgb(1.08f, 1.01f, 0.90f, 1.04f), rgb(0.58f, 0.70f, 0.88f, 1f), 0.05f, rgb(0.82f, 0.86f, 0.90f, 1f)),
-		new Key(10200, rgb(1.06f, 0.95f, 0.82f, 1.00f), rgb(0.56f, 0.66f, 0.84f, 1f), 0.10f, rgb(0.80f, 0.83f, 0.86f, 1f)),
-		new Key(12000, rgb(1.00f, 0.56f, 0.34f, 0.88f), rgb(0.52f, 0.42f, 0.64f, 1f), 0.55f, rgb(0.78f, 0.62f, 0.62f, 1f)),
-		new Key(13400, rgb(0.48f, 0.44f, 0.74f, 0.55f), rgb(0.26f, 0.27f, 0.50f, 1f), 0.90f, rgb(0.30f, 0.30f, 0.44f, 1f)),
-		new Key(18000, rgb(0.44f, 0.54f, 0.80f, 0.52f), rgb(0.20f, 0.25f, 0.44f, 1f), 1.00f, rgb(0.14f, 0.16f, 0.26f, 1f)),
-		new Key(22600, rgb(0.48f, 0.46f, 0.76f, 0.55f), rgb(0.26f, 0.27f, 0.52f, 1f), 0.90f, rgb(0.30f, 0.30f, 0.46f, 1f)),
-		new Key(24000, rgb(1.00f, 0.66f, 0.42f, 0.90f), rgb(0.50f, 0.45f, 0.66f, 1f), 0.45f, rgb(0.80f, 0.70f, 0.72f, 1f)),
+		new Key(0, rgb(1.00f, 0.66f, 0.42f, 0.90f), rgb(0.50f, 0.45f, 0.66f, 1f), 0.45f, rgb(0.86f, 0.76f, 0.68f, 1f)),
+		new Key(1800, rgb(1.06f, 0.97f, 0.86f, 1.00f), rgb(0.56f, 0.66f, 0.84f, 1f), 0.10f, rgb(0.88f, 0.84f, 0.76f, 1f)),
+		new Key(6000, rgb(1.08f, 1.01f, 0.90f, 1.04f), rgb(0.58f, 0.70f, 0.88f, 1f), 0.05f, rgb(0.90f, 0.86f, 0.78f, 1f)),
+		new Key(10200, rgb(1.06f, 0.95f, 0.82f, 1.00f), rgb(0.56f, 0.66f, 0.84f, 1f), 0.10f, rgb(0.88f, 0.83f, 0.74f, 1f)),
+		new Key(12000, rgb(1.00f, 0.56f, 0.34f, 0.88f), rgb(0.52f, 0.42f, 0.64f, 1f), 0.55f, rgb(0.84f, 0.66f, 0.56f, 1f)),
+		new Key(13400, rgb(0.52f, 0.50f, 0.78f, 0.66f), rgb(0.38f, 0.40f, 0.62f, 1f), 0.90f, rgb(0.38f, 0.37f, 0.48f, 1f)),
+		new Key(18000, rgb(0.50f, 0.60f, 0.86f, 0.64f), rgb(0.34f, 0.40f, 0.60f, 1f), 1.00f, rgb(0.24f, 0.26f, 0.36f, 1f)),
+		new Key(22600, rgb(0.52f, 0.52f, 0.80f, 0.66f), rgb(0.38f, 0.40f, 0.64f, 1f), 0.90f, rgb(0.38f, 0.37f, 0.50f, 1f)),
+		new Key(24000, rgb(1.00f, 0.66f, 0.42f, 0.90f), rgb(0.50f, 0.45f, 0.66f, 1f), 0.45f, rgb(0.86f, 0.76f, 0.68f, 1f)),
 	};
 
 	private TimeGrading() {
@@ -37,8 +37,8 @@ public final class TimeGrading {
 	public static Grade grade(Dimension dim, long dayTime, float rain, float thunder) {
 		switch (dim) {
 			case NETHER -> {
-				return new Grade(rgb(1.0f, 0.62f, 0.46f, 0.70f), rgb(0.62f, 0.34f, 0.30f, 1f), rgb(1.0f, 0.68f, 0.38f, 0.85f),
-					1.05f, 1.05f, rgb(0.30f, 0.12f, 0.12f, 1f), rgb(0.16f, 0.06f, 0.07f, 1f), 0.5f);
+				return new Grade(rgb(1.0f, 0.84f, 0.70f, 0.82f), rgb(0.70f, 0.60f, 0.58f, 1f), rgb(1.0f, 0.80f, 0.55f, 0.42f),
+					0.80f, 1.0f, rgb(0.30f, 0.14f, 0.13f, 1f), rgb(0.16f, 0.07f, 0.08f, 1f), 0.5f);
 			}
 			case END -> {
 				return new Grade(rgb(0.82f, 0.78f, 1.0f, 0.75f), rgb(0.44f, 0.38f, 0.58f, 1f), rgb(0.9f, 0.7f, 1.0f, 0.6f),

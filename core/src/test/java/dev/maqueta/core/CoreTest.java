@@ -14,6 +14,7 @@ import dev.maqueta.core.marker.Waypoint;
 import dev.maqueta.core.mesh.MeshBuilder;
 import dev.maqueta.core.mesh.MeshData;
 import dev.maqueta.core.mesh.TerrainMesher;
+import dev.maqueta.core.mesh.TileSource;
 import org.joml.Matrix4f;
 import org.joml.Vector4f;
 import org.junit.jupiter.api.Test;
@@ -70,31 +71,184 @@ class CoreTest {
 	}
 
 	@Test
-	void unexploredEdgeGetsStrataWalls() {
+	void unexploredEdgeHasNoWalls() {
 		ColumnStore store = new ColumnStore();
 		store.put(flat(0, 0, 70, Material.GRASS, 0x7FB238));
 		MeshData mesh = new TerrainMesher(store, 40).build(0, 0, 0, 0, 0);
-		assertTrue(mesh.vertexCount() > 256 * 4, "edges facing unexplored land show cut-out walls");
-		assertEquals(40f, mesh.minY());
+		assertEquals(256 * 4, mesh.vertexCount(), "no cut-out walls towards unexplored land: the shader blends the edge");
+	}
+
+	/** Voxel chunk at (0,0): flat ground up to y 63, plus whatever the caller sets as opaque. */
+	private static ColumnStore voxelWorld(int[][] extraOpaque) {
+		ColumnStore store = new ColumnStore();
+		for (int z = -1; z <= 1; z++)
+			for (int x = -1; x <= 1; x++)
+				if (x != 0 || z != 0) store.put(flat(x, z, 64, Material.GRASS, 0x7FB238));
+		ChunkColumns c = flat(0, 0, 64, Material.GRASS, 0x7FB238);
+		ChunkVoxels v = new ChunkVoxels(56, 40);
+		int grass = v.entryIndex(new ChunkVoxels.Entry("minecraft:grass_block", Material.GRASS, 0x7FB238, 0, 0));
+		int stone = v.entryIndex(new ChunkVoxels.Entry("minecraft:stone", Material.STONE, 0x7F7F7F, 0, 0));
+		java.util.TreeMap<Integer, int[]> shell = new java.util.TreeMap<>();
+		for (int z = 0; z < 16; z++)
+			for (int x = 0; x < 16; x++)
+				for (int y = 56; y < 64; y++) v.setOpaque(x, y, z);
+		for (int[] p : extraOpaque) v.setOpaque(p[0], p[1], p[2]);
+		// The shell: every opaque cell with a non-opaque neighbour inside the chunk.
+		for (int y = 56; y < 96; y++)
+			for (int z = 0; z < 16; z++)
+				for (int x = 0; x < 16; x++) {
+					if (!v.opaque(x, y, z)) continue;
+					boolean open = !v.opaque(x, y + 1, z) || (x > 0 && !v.opaque(x - 1, y, z)) || (x < 15 && !v.opaque(x + 1, y, z))
+						|| (z > 0 && !v.opaque(x, y, z - 1)) || (z < 15 && !v.opaque(x, y, z + 1)) || !v.opaque(x, y - 1, z);
+					if (open) shell.put(ChunkVoxels.cell(x, y - 56, z), new int[]{x, y, z, y == 63 ? grass : stone});
+				}
+		for (int[] s : shell.values()) v.addShell(s[0], s[1], s[2], s[3]);
+		c.voxels = v;
+		for (int[] p : extraOpaque) c.top[ChunkColumns.index(p[0], p[2])] = (short) Math.max(c.top[ChunkColumns.index(p[0], p[2])], p[1] + 1);
+		store.put(c);
+		return store;
 	}
 
 	@Test
-	void treeCanopyFloatsAboveGround() {
+	void voxelFloatingBlockIsACubeNotAPillar() {
+		MeshData mesh = new TerrainMesher(voxelWorld(new int[][]{{8, 74, 8}}), 40).build(0, 0, 0, 0, 0);
+		assertEquals((256 + 6) * 4, mesh.vertexCount(), "256 ground tops + the floating cube's 6 faces, nothing under it");
+		assertEquals(75f, mesh.maxY());
+		assertEquals(64f, mesh.minY(), "no geometry below the ground surface");
+	}
+
+	@Test
+	void voxelHollowTowerKeepsItsInside() {
+		java.util.List<int[]> walls = new java.util.ArrayList<>();
+		for (int y = 64; y < 80; y++)
+			for (int x = 4; x <= 8; x++)
+				for (int z = 4; z <= 8; z++)
+					if (x == 4 || x == 8 || z == 4 || z == 8) walls.add(new int[]{x, y, z});
+		MeshData mesh = new TerrainMesher(voxelWorld(walls.toArray(new int[0][])), 40).build(0, 0, 0, 0, 0);
+		// The floor inside the tower (3x3) still gets its top faces: the inside is air, not filled.
+		ByteBufferCheck check = new ByteBufferCheck(mesh);
+		assertTrue(check.hasTopFaceAt(6.5f, 64f, 6.5f), "the floor inside the hollow tower is visible");
+	}
+
+	/** Finds an up-facing quad covering a point in a mesh. */
+	private record ByteBufferCheck(MeshData mesh) {
+		boolean hasTopFaceAt(float x, float y, float z) {
+			java.nio.ByteBuffer b = mesh.vertices();
+			for (int q = 0; q < mesh.vertexCount() / 4; q++) {
+				float minX = 1e9f, maxX = -1e9f, minZ = 1e9f, maxZ = -1e9f, yy = 0;
+				boolean up = true;
+				for (int k = 0; k < 4; k++) {
+					int o = (q * 4 + k) * MeshBuilder.STRIDE;
+					float vx = b.getFloat(o), vy = b.getFloat(o + 4), vz = b.getFloat(o + 8);
+					up &= (b.get(o + 15) & 7) == MeshBuilder.N_UP;
+					minX = Math.min(minX, vx); maxX = Math.max(maxX, vx); minZ = Math.min(minZ, vz); maxZ = Math.max(maxZ, vz);
+					yy = vy;
+				}
+				if (up && Math.abs(yy - y) < 1e-3 && x > minX && x < maxX && z > minZ && z < maxZ) return true;
+			}
+			return false;
+		}
+	}
+
+	@Test
+	void riversStayWaterAtDistance() {
+		ColumnStore store = new ColumnStore();
+		ChunkColumns c = flat(0, 0, 64, Material.SAND, 0xDDCC99);
+		// Half the chunk is a river: water surface 62 over a bed at 60, lower than the 64 banks.
+		for (int z = 0; z < 16; z++)
+			for (int x = 0; x < 8; x++)
+				c.set(x, z, 62, 60, Material.WATER, 0x3F76E4, Material.SAND, 0xDDCC99, 0xDDCC99, 0, 0);
+		store.put(c);
+		MeshData coarse = new TerrainMesher(store, 40).build(0, 0, 3, 0, 0);
+		assertEquals(62f, coarse.minY(), "the river cell keeps the water surface, not a hole down to the bed");
+	}
+
+	@Test
+	void floatingBranchStaysInTheAir() {
 		ColumnStore store = new ColumnStore();
 		for (int z = -1; z <= 1; z++)
 			for (int x = -1; x <= 1; x++)
 				store.put(flat(x, z, 64, Material.GRASS, 0x7FB238));
 		ChunkColumns c = store.get(0, 0);
-		// A 3x3 canopy at y 70, ground at 64.
-		for (int z = 6; z <= 8; z++)
-			for (int x = 6; x <= 8; x++)
-				c.set(x, z, 70, 64, Material.FOLIAGE, 0x59AE30, Material.GRASS, 0x7FB238, 0x7FB238, 0, 0);
+		// A single leaf block hanging at y 74 (10 blocks above the ground), air in between.
+		int i = ChunkColumns.index(8, 8);
+		c.top[i] = 75;
+		c.beginRuns(i);
+		c.addRun(75, 74, c.blockIndex("minecraft:oak_leaves"), Material.FOLIAGE, 0x59AE30);
 		MeshData mesh = new TerrainMesher(store, 40).build(0, 0, 0, 0, 0);
-		assertEquals(70f, mesh.maxY());
-		assertEquals(64f, mesh.minY(), "no pillar walls down to the board: the lowest geometry is the ground");
-		// Ground quads under the canopy + canopy tops + undersides + 12 canopy side quads.
-		int expectedQuads = 247 + 9 * 3 + 12;
-		assertEquals(expectedQuads * 4, mesh.vertexCount());
+		assertEquals(75f, mesh.maxY());
+		assertEquals(64f, mesh.minY());
+		// 256 ground tops (the one under the leaf still sees air) + the leaf cube: top, bottom, 4 sides.
+		assertEquals((256 + 6) * 4, mesh.vertexCount(), "a floating block is a cube, not a pillar");
+	}
+
+	@Test
+	void partialBlocksUseTheirShape() {
+		ColumnStore store = new ColumnStore();
+		for (int z = -1; z <= 1; z++)
+			for (int x = -1; x <= 1; x++)
+				store.put(flat(x, z, 64, Material.GRASS, 0x7FB238));
+		ChunkColumns c = store.get(0, 0);
+		int i = ChunkColumns.index(3, 3);
+		c.top[i] = 65;
+		c.beginRuns(i);
+		c.addRun(65, 64, c.blockIndex("minecraft:white_carpet"), Material.BUILT, 0xE9ECEC);
+		TileSource carpet = new TileSource() {
+			public int tile(String block, boolean top) { return 0; }
+			public float[][] shape(String block) {
+				return block.contains("carpet") ? new float[][]{{0, 0, 0, 1, 0.0625f, 1}} : null;
+			}
+		};
+		MeshData mesh = new TerrainMesher(store, 40, carpet).build(0, 0, 0, 0, 0);
+		assertEquals(64.0625f, mesh.maxY(), 1e-4, "a carpet is 1/16 of a block, not a cube");
+	}
+
+	@Test
+	void routeGoesAroundACliffAndNeverClimbsTwoBlocks() {
+		ColumnStore store = new ColumnStore();
+		for (int z = -1; z <= 2; z++)
+			for (int x = -1; x <= 2; x++)
+				store.put(flat(x, z, 64, Material.GRASS, 0x7FB238));
+		// A 6-block wall across x = 16, open only at z >= 40.
+		for (int z = -16; z < 40; z++) {
+			ChunkColumns c = store.get(1, z >> 4);
+			c.top[ChunkColumns.index(0, z & 15)] = 70;
+			c.floor[ChunkColumns.index(0, z & 15)] = 70;
+		}
+		dev.maqueta.core.route.RoutePlanner.Route r = dev.maqueta.core.route.RoutePlanner.find(store, 8.5, 8.5, 24.5, 8.5,
+			dev.maqueta.core.route.RoutePlanner.Options.WALK);
+		assertTrue(r.complete());
+		assertTrue(r.length() > 60, "must detour around the wall, got " + r.length());
+		for (double[] p : r.points()) assertTrue(p[1] <= 64.01, "never walks on the wall");
+		double[] last = r.points().getLast();
+		assertEquals(24.5, last[0], 0.6);
+	}
+
+	@Test
+	void caveSurroundingsAreShadedNotHidden() {
+		dev.maqueta.core.cave.VoxelVolume v = new dev.maqueta.core.cave.VoxelVolume(0, 0, 0, 16, 8, 16);
+		for (int y = 0; y < 8; y++)
+			for (int z = 0; z < 16; z++)
+				for (int x = 0; x < 16; x++)
+					v.set(x, y, z, Material.STONE, 0x808080, 0);
+		for (int x = 2; x <= 5; x++) v.set(x, 3, 3, Material.NONE, 0, 0);
+		for (int x = 10; x <= 13; x++) v.set(x, 3, 12, Material.NONE, 0, 0);
+		int fair = dev.maqueta.core.cave.CaveMesher.build(v, 3, 3, 3, 6, 10_000, 0, 0, false).mesh().vertexCount();
+		int full = dev.maqueta.core.cave.CaveMesher.build(v, 3, 3, 3, 6, 10_000, 0, 0, true).mesh().vertexCount();
+		assertTrue(full > fair * 4, "surroundings add the other cave and the rock section");
+	}
+
+	@Test
+	void columnsRoundTripNames() throws Exception {
+		ChunkColumns c = flat(0, 0, 64, Material.GRASS, 0x7FB238);
+		c.setNames(3, 4, "minecraft:grass_block", "minecraft:dirt", "minecraft:dirt", "minecraft:plains", ChunkColumns.FLAG_PATH);
+		java.io.ByteArrayOutputStream bo = new java.io.ByteArrayOutputStream();
+		c.write(new java.io.DataOutputStream(bo));
+		ChunkColumns b = ChunkColumns.read(new java.io.DataInputStream(new java.io.ByteArrayInputStream(bo.toByteArray())));
+		int i = ChunkColumns.index(3, 4);
+		assertEquals("minecraft:grass_block", b.topName(i));
+		assertEquals("minecraft:plains", b.biomeName(i));
+		assertTrue(b.hasFlag(i, ChunkColumns.FLAG_PATH));
 	}
 
 	@Test

@@ -31,16 +31,12 @@ public final class HeightWindow {
 			for (int cx = c0x; cx <= c1x; cx++) {
 				ChunkColumns c = store.get(cx, cz);
 				if (c == null) continue;
+				int wx = (cx << 4) - originX, wz = (cz << 4) - originZ;
 				for (int lz = 0; lz < 16; lz++) {
-					int wz = (cz << 4) + lz - originZ;
-					if (wz < 0 || wz >= size) continue;
-					for (int lx = 0; lx < 16; lx++) {
-						int wx = (cx << 4) + lx - originX;
-						if (wx < 0 || wx >= size) continue;
-						int i = ChunkColumns.index(lx, lz);
-						top[wz * size + wx] = c.top[i];
-						emission[wz * size + wx] = c.emission[i];
-					}
+					int dest = (wz + lz) * size + wx;
+					int source = ChunkColumns.index(0, lz);
+					System.arraycopy(c.top, source, top, dest, 16);
+					System.arraycopy(c.emission, source, emission, dest, 16);
 				}
 			}
 		}

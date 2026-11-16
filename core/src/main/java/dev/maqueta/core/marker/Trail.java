@@ -26,6 +26,30 @@ public final class Trail {
 		zs[i] = (float) z;
 		if (count < xs.length) count++;
 		else start = (start + 1) % xs.length;
+		trimToLength();
+	}
+
+	private float maxLength = Float.MAX_VALUE;
+
+	/** Keep only the most recent {@code blocks} of path. */
+	public synchronized void setMaxLength(float blocks) {
+		maxLength = blocks;
+		trimToLength();
+	}
+
+	private void trimToLength() {
+		float len = 0;
+		for (int k = count - 1; k > 0; k--) {
+			int a = (start + k) % xs.length, b = (start + k - 1) % xs.length;
+			float dx = xs[a] - xs[b], dz = zs[a] - zs[b];
+			len += (float) Math.sqrt(dx * dx + dz * dz);
+			if (len > maxLength) {
+				// Drop everything older than point k-1.
+				start = b;
+				count = count - (k - 1);
+				return;
+			}
+		}
 	}
 
 	public synchronized void clear() {

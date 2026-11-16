@@ -13,6 +13,8 @@ public final class VoxelVolume {
 	final byte[] material;
 	final int[] color;
 	final byte[] emission;
+	final short[] tileTop;
+	final short[] tileSide;
 
 	public VoxelVolume(int originX, int originY, int originZ, int sizeX, int sizeY, int sizeZ) {
 		this.originX = originX;
@@ -25,6 +27,8 @@ public final class VoxelVolume {
 		material = new byte[n];
 		color = new int[n];
 		emission = new byte[n];
+		tileTop = new short[n];
+		tileSide = new short[n];
 	}
 
 	public int index(int lx, int ly, int lz) {
@@ -40,6 +44,14 @@ public final class VoxelVolume {
 		material[i] = (byte) mat.ordinal();
 		color[i] = rgb;
 		emission[i] = (byte) emit;
+	}
+
+	/** Sets a block with its texture tiles (top face, side faces). */
+	public void set(int lx, int ly, int lz, Material mat, int rgb, int emit, int top, int side) {
+		set(lx, ly, lz, mat, rgb, emit);
+		int i = index(lx, ly, lz);
+		tileTop[i] = (short) top;
+		tileSide[i] = (short) side;
 	}
 
 	public Material material(int lx, int ly, int lz) {
