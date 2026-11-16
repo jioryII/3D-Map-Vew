@@ -100,7 +100,7 @@ public final class CaveTracker implements AutoCloseable {
 	private static boolean isUnderground(ClientLevel level, BlockPos eye) {
 		int surface = level.getHeight(Heightmap.Types.MOTION_BLOCKING, eye.getX(), eye.getZ());
 		if (level.dimensionType().hasCeiling()) {
-			return true;
+			return false; // the Nether map is the inside itself (or the roof): no cave slice
 		}
 		int sky = level.getBrightness(LightLayer.SKY, eye);
 		return surface > eye.getY() + 3 && sky <= 4;
@@ -131,10 +131,14 @@ public final class CaveTracker implements AutoCloseable {
 				}
 			}
 		}
+		MapSession session = MapSession.get();
+		boolean surroundings = session == null || !session.fairPlay();
 		building = true;
 		Workers.submit(-1, () -> {
 			try {
 				VoxelVolume v = new VoxelVolume(x0, y0, z0, size, y1 - y0 + 1, size);
+				java.util.IdentityHashMap<BlockInfo, int[]> tileCache = new java.util.IdentityHashMap<>();
+				dev.maqueta.client.render.TileAtlas atlas = dev.maqueta.client.render.TileAtlas.get();
 				for (int ly = 0; ly < v.sizeY; ly++) {
 					int wy = y0 + ly;
 					int s = ((wy - minY) >> 4) - s0;
@@ -148,7 +152,11 @@ public final class CaveTracker implements AutoCloseable {
 							BlockState st = c.get(wx & 15, (wy - minY) & 15, wz & 15);
 							BlockInfo info = BlockInfo.of(st);
 							switch (info.kind()) {
-								case SOLID -> v.set(lx, ly, lz, info.material(), info.color(), info.emission());
+								case SOLID -> {
+									int[] t = tileCache.computeIfAbsent(info, k -> new int[]{atlas.tile(k.id(), true), atlas.tile(k.id(), false), atlas.color(k.id(), true)});
+									int col = t[2] >= 0 && info.tint() == BlockInfo.Tint.NONE ? t[2] : info.color();
+									v.set(lx, ly, lz, info.material(), col, info.emission(), t[0], t[1]);
+								}
 								case WATER -> v.set(lx, ly, lz, Material.WATER, 0x3F76E4, 0);
 								case DECORATION -> {
 									if (info.emission() > 0) v.set(lx, ly, lz, Material.NONE, 0, info.emission());
@@ -159,7 +167,7 @@ public final class CaveTracker implements AutoCloseable {
 						}
 					}
 				}
-				CaveMesher.Result r = CaveMesher.build(v, px, py, pz, cut, 120_000, anchorX, anchorZ);
+				CaveMesher.Result r = CaveMesher.build(v, px, py, pz, cut, 120_000, anchorX, anchorZ, surroundings);
 				pending.set(new Pending(r.mesh(), cut, r.reachedCells()));
 			} finally {
 				building = false;

@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Background workers (cores minus two, low priority). Jobs are ordered by priority:
+ * Background workers (bounded and low priority). Jobs are ordered by priority:
  * lower value runs first, typically the distance to the point the camera looks at.
  */
 public final class Workers {
@@ -16,7 +16,7 @@ public final class Workers {
 	private static final ThreadPoolExecutor EXECUTOR;
 
 	static {
-		int threads = Math.max(1, Runtime.getRuntime().availableProcessors() - 2);
+		int threads = Math.clamp(Runtime.getRuntime().availableProcessors() / 4, 1, 4);
 		AtomicInteger n = new AtomicInteger();
 		ThreadFactory factory = r -> {
 			Thread t = new Thread(r, "Maqueta worker " + n.incrementAndGet());

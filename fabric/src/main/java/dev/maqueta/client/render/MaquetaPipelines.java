@@ -26,11 +26,19 @@ public final class MaquetaPipelines {
 		.withUniform(FRAME_UNIFORM, UniformType.UNIFORM_BUFFER)
 		.build();
 
-	/** 20 bytes: position, albedo + code, baked light terms. Matches core MeshBuilder. */
+	/** The maqueta tile atlas and the GPU heightmap (per-pixel sun rays). */
+	public static final BindGroupLayout TEXTURES = BindGroupLayout.builder()
+		.withUniform("TileAtlas", UniformType.COMBINED_IMAGE_SAMPLER)
+		.withUniform("HeightMap", UniformType.COMBINED_IMAGE_SAMPLER)
+		.withUniform("EdgeMask", UniformType.COMBINED_IMAGE_SAMPLER)
+		.build();
+
+	/** 24 bytes: position, base colour + code, baked light terms, tile + material. Matches core MeshBuilder. */
 	public static final VertexFormat TERRAIN_FORMAT = VertexFormat.builder(0)
 		.addAttribute("Position", GpuFormat.RGB32_FLOAT)
 		.addAttribute("Color", GpuFormat.RGBA8_UNORM)
 		.addAttribute("Light", GpuFormat.RGBA8_UNORM)
+		.addAttribute("Tile", GpuFormat.RG16_SINT)
 		.build();
 
 	/** 16 bytes: position + premultiplied-ready colour for markers, trail, figures. */
@@ -47,7 +55,9 @@ public final class MaquetaPipelines {
 		.withVertexShader(id("core/board"))
 		.withFragmentShader(id("core/board"))
 		.withBindGroupLayout(FRAME)
+		.withBindGroupLayout(TEXTURES)
 		.withColorTargetState(OPAQUE)
+		.withDepthStencilState(new DepthStencilState(CompareOp.EQUAL, false))
 		.withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
 		.withCull(false)
 		.build();
@@ -57,10 +67,24 @@ public final class MaquetaPipelines {
 		.withVertexShader(id("core/terrain"))
 		.withFragmentShader(id("core/terrain"))
 		.withBindGroupLayout(FRAME)
+		.withBindGroupLayout(TEXTURES)
 		.withVertexBinding(0, TERRAIN_FORMAT)
 		.withColorTargetState(OPAQUE)
 		.withDepthStencilState(DepthStencilState.DEFAULT)
 		.withPrimitiveTopology(PrimitiveTopology.QUADS)
+		.withCull(false)
+		.build();
+
+	/** Cloud banks hugging the border of the explored area (volumetric, biome-dressed). */
+	public static final RenderPipeline EDGE_CLOUDS = RenderPipeline.builder()
+		.withLocation(id("pipeline/edge_clouds"))
+		.withVertexShader(id("core/board"))
+		.withFragmentShader(id("core/edgeclouds"))
+		.withBindGroupLayout(FRAME)
+		.withBindGroupLayout(TEXTURES)
+		.withColorTargetState(PREMULTIPLIED)
+		.withDepthStencilState(new DepthStencilState(CompareOp.GREATER_THAN_OR_EQUAL, false))
+		.withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
 		.withCull(false)
 		.build();
 

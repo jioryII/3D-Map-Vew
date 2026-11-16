@@ -19,10 +19,15 @@ import java.util.concurrent.ConcurrentHashMap;
  * How a block state takes part in the maqueta. Computed once per state and cached; safe to
  * call from worker threads (only immutable block properties and bound tags are read).
  */
-public record BlockInfo(Kind kind, Material material, int color, Tint tint, int emission, boolean snowCover, boolean tree) {
+public record BlockInfo(Kind kind, Material material, int color, Tint tint, int emission, boolean snowCover, boolean tree, String id) {
+	/** Record without a registry id (synthetic fallbacks). */
+	public BlockInfo(Kind kind, Material material, int color, Tint tint, int emission, boolean snowCover, boolean tree) {
+		this(kind, material, color, tint, emission, snowCover, tree, "");
+	}
+
 	public enum Kind { AIR, DECORATION, WATER, SOLID }
 
-	public enum Tint { NONE, GRASS, FOLIAGE, WATER }
+	public enum Tint { NONE, GRASS, FOLIAGE, WATER, FIXED }
 
 	private static final Map<BlockState, BlockInfo> CACHE = new ConcurrentHashMap<>();
 	private static final BlockInfo AIR = new BlockInfo(Kind.AIR, Material.NONE, 0, Tint.NONE, 0, false, false);
@@ -42,6 +47,14 @@ public record BlockInfo(Kind kind, Material material, int color, Tint tint, int 
 
 	private static BlockInfo classify(BlockState state) {
 		if (state.isAir()) return AIR;
+		return classifyNamed(state).withId(BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString());
+	}
+
+	private BlockInfo withId(String newId) {
+		return new BlockInfo(kind, material, color, tint, emission, snowCover, tree, newId);
+	}
+
+	private static BlockInfo classifyNamed(BlockState state) {
 		String path = BuiltInRegistries.BLOCK.getKey(state.getBlock()).getPath().toLowerCase(Locale.ROOT);
 		int emission = state.getLightEmission();
 		MapColor mc;
@@ -65,8 +78,10 @@ public record BlockInfo(Kind kind, Material material, int color, Tint tint, int 
 
 		if (state.is(BlockTags.LEAVES)) {
 			Tint tint = mc == MapColor.PLANT ? Tint.FOLIAGE : Tint.NONE;
-			if (state.is(Blocks.SPRUCE_LEAVES)) return new BlockInfo(Kind.SOLID, Material.FOLIAGE, 0x619961, Tint.NONE, emission, false, true);
-			if (state.is(Blocks.BIRCH_LEAVES)) return new BlockInfo(Kind.SOLID, Material.FOLIAGE, 0x80A755, Tint.NONE, emission, false, true);
+			if (state.is(Blocks.SPRUCE_LEAVES)) return new BlockInfo(Kind.SOLID, Material.FOLIAGE, 0x619961, Tint.FIXED, emission, false, true);
+			if (state.is(Blocks.BIRCH_LEAVES)) return new BlockInfo(Kind.SOLID, Material.FOLIAGE, 0x80A755, Tint.FIXED, emission, false, true);
+			// Blossom pink: the model marks the quads as tinted, so the texture alone reads grey-white.
+			if (state.is(Blocks.CHERRY_LEAVES)) return new BlockInfo(Kind.SOLID, Material.FOLIAGE, 0xF2A6C6, Tint.FIXED, emission, false, true);
 			return new BlockInfo(Kind.SOLID, Material.FOLIAGE, col, tint, emission, false, true);
 		}
 

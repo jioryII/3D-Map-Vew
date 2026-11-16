@@ -11,6 +11,7 @@ public final class GpuMesh implements AutoCloseable {
 	public final float minY, maxY;
 	public final long bytes;
 	public long lastUsedFrame;
+	float distanceSquared;
 
 	private GpuMesh(GpuBuffer buffer, int indexCount, float minY, float maxY, long bytes) {
 		this.buffer = buffer;

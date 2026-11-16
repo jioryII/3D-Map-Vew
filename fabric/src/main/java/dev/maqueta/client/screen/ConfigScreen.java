@@ -43,8 +43,8 @@ public final class ConfigScreen extends Screen {
 		toggle(col0, y, "maqueta.config.trail", () -> c.showTrail, v -> c.showTrail = v);
 		toggle(col1, y, "maqueta.config.entities", () -> c.showEntities, v -> c.showEntities = v);
 		y += 24;
-		toggle(col0, y, "maqueta.config.sunmoon", () -> c.showSunMoon, v -> c.showSunMoon = v);
-		toggle(col1, y, "maqueta.config.clock12", () -> c.twelveHourClock, v -> c.twelveHourClock = v);
+		toggle(col0, y, "maqueta.config.beacons", () -> c.showWaypointBeacons, v -> c.showWaypointBeacons = v);
+		toggle(col1, y, "maqueta.config.hostile", () -> c.showHostile, v -> c.showHostile = v);
 		y += 24;
 		toggle(col0, y, "maqueta.config.coords", () -> c.showCoordinates, v -> c.showCoordinates = v);
 		toggle(col1, y, "maqueta.config.autotilt", () -> c.autoTilt, v -> c.autoTilt = v);

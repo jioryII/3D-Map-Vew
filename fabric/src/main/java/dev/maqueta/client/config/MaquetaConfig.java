@@ -16,6 +16,7 @@ public final class MaquetaConfig {
 	private static MaquetaConfig instance = new MaquetaConfig();
 
 	// Minimap
+	public int configVersion = 0;
 	public boolean minimapEnabled = true;
 	public HudAnchor anchor = HudAnchor.TOP_RIGHT;
 	public int minimapSize = 132;
@@ -27,14 +28,19 @@ public final class MaquetaConfig {
 	public boolean showCompass = true;
 	public float veilOpacity = 0.28f;
 
+	/** Minimap reach presets cycled with the zoom key (Tab by default). */
+	public float[] minimapZoomLevels = {40f, 72f, 130f};
+	public int minimapZoomIndex = 1;
+	/** Make what stands between the camera and the player see-through. */
+	public boolean seeThrough = true;
+
 	// HUD extras
-	public boolean showSunMoon = true;
-	public boolean twelveHourClock = false;
-	public boolean showDayCounter = true;
 	public boolean showCoordinates = true;
 
 	// Markers
 	public boolean showTrail = true;
+	/** How many blocks of path the breadcrumb trail keeps. */
+	public int trailLength = 500;
 	public boolean showEntities = true;
 	public boolean showHostile = true;
 	public boolean showPassive = true;
@@ -47,6 +53,15 @@ public final class MaquetaConfig {
 	public boolean reduceMotion = false;
 	public float supersampling = 1.5f;
 	public int renderRadiusChunks = 48;
+	public boolean clouds = true;
+	/** 0 = no haze, 1 = default, 2 = thick. */
+	public float haze = 1f;
+	/** Off: the explored edge is a straight cut hidden under the fog bank (v0.6 default). */
+	public boolean edgeRelief = false;
+	/** Pause the singleplayer world while the full map is open. */
+	public boolean pauseWhenMapOpen = true;
+	/** Show areas another map mod (JourneyMap) already charted, until Maqueta sees them itself. */
+	public boolean importOtherMaps = true;
 
 	// Fair play (can be forced by the server)
 	public boolean safeMode = false;
@@ -69,6 +84,18 @@ public final class MaquetaConfig {
 				instance = new MaquetaConfig();
 			}
 		}
+		if (instance.configVersion < 5) {
+			// v0.4 bound the minimap toggle to H, which clashes with MiniHUD and silently turned it off.
+			instance.minimapEnabled = true;
+		}
+		if (instance.configVersion < 6) {
+			instance.edgeRelief = false; // straight edges under fog banks replace the ramp
+			instance.pauseWhenMapOpen = true;
+		}
+		if (instance.configVersion < 6) {
+			instance.configVersion = 6;
+			instance.save();
+		}
 		instance.sanitize();
 	}
 
@@ -88,5 +115,9 @@ public final class MaquetaConfig {
 		supersampling = Math.max(1f, Math.min(2f, supersampling));
 		renderRadiusChunks = Math.max(8, Math.min(160, renderRadiusChunks));
 		veilOpacity = Math.max(0f, Math.min(0.8f, veilOpacity));
+		trailLength = Math.max(50, Math.min(5000, trailLength));
+		haze = Math.max(0f, Math.min(2f, haze));
+		if (minimapZoomLevels == null || minimapZoomLevels.length == 0) minimapZoomLevels = new float[]{40f, 72f, 130f};
+		minimapZoomIndex = Math.floorMod(minimapZoomIndex, minimapZoomLevels.length);
 	}
 }

@@ -45,7 +45,6 @@ public final class MinimapHud {
 		MaquetaConfig cfg = MaquetaConfig.get();
 		MapSession session = MapSession.get();
 		if (session == null || mc.player == null || mc.level == null) return;
-		if (cfg.showSunMoon) SunMoonIndicator.extract(graphics, mc, session);
 		if (!cfg.minimapEnabled || !session.minimapAllowed()) return;
 		if (mc.gui.screen() instanceof AbstractContainerScreen<?>) return; // never cover inventories or other mods' screens
 		if (mc.gui.screen() instanceof dev.maqueta.client.screen.MapScreen) return;
@@ -63,7 +62,7 @@ public final class MinimapHud {
 		Vec3 p = mc.player.getPosition(partial);
 		boolean cave = session.cave.active() && session.caveLayerAllowed();
 		caveZoom += ((cave ? 0.62f : 1f) - caveZoom) * Math.min(1f, dt * 4f);
-		float distance = cfg.minimapDistance * caveZoom;
+		float distance = cfg.minimapZoomLevels[cfg.minimapZoomIndex] * caveZoom;
 		float yaw = cfg.rotateWithPlayer ? (float) Math.toRadians(mc.player.getViewYRot(partial)) + (float) Math.PI : 0f;
 		if (!initialised) {
 			CAMERA.snapPose(yaw, (float) Math.toRadians(cfg.minimapPitchDeg), distance);
@@ -80,10 +79,12 @@ public final class MinimapHud {
 
 		TimeGrading.Grade grade = grade(mc, session);
 		RENDERER.prepareCamera(CAMERA, session, px, px);
-		List<SceneMarkers.Label> labels = SceneMarkers.build(RENDERER, session, mc, partial, CAMERA.distance(), true);
+		SceneMarkers.Result scene = SceneMarkers.build(RENDERER, session, mc, partial, CAMERA.distance(), true);
 		int radius = (int) Math.ceil(CAMERA.distance() * 2.4 / 16.0) + 2;
 		MapRenderer.Params params = new MapRenderer.Params(MapRenderer.Mode.MINIMAP, grade, seconds(), 1e6f, 0.66f, 0.99f,
-			cfg.veilOpacity, CAMERA.distance() * 1.2f, Math.min(radius, 24), 1.4f);
+			cfg.veilOpacity, CAMERA.distance() * 1.2f, Math.min(radius, 24), 1.4f, 900f, true,
+			new org.joml.Vector3f((float) (p.x - session.anchorX), (float) p.y, (float) (p.z - session.anchorZ)),
+			cfg.seeThrough ? px * 0.225f : 0f, 0.00030f * cfg.haze, 0f, 0f, cfg.edgeRelief);
 		GpuTextureView view = RENDERER.render(session, CAMERA, px, px, params);
 
 		blit(graphics, view, pos[0], pos[1], pos[0] + size, pos[1] + size);
@@ -91,7 +92,18 @@ public final class MinimapHud {
 		Font font = mc.font;
 		float scale = size / (float) px;
 		if (cfg.showCompass) drawCompass(graphics, font, session, pos, size, scale);
-		for (SceneMarkers.Label l : labels) {
+		int faceFrom = 0, iconIndex = 0;
+		for (SceneMarkers.Icon icon : scene.icons()) {
+			boolean face = iconIndex++ >= faceFrom;
+			float[] sp = RENDERER.project(session, icon.x(), icon.y(), icon.z());
+			if (sp == null) continue;
+			float ix = pos[0] + sp[0] * scale, iy = pos[1] + sp[1] * scale;
+			float ddx = ix - (pos[0] + size / 2f), ddy = iy - (pos[1] + size / 2f);
+			if (ddx * ddx + ddy * ddy > (size * 0.40f) * (size * 0.40f)) continue;
+			if (face) MapUi.icon(graphics, font, icon, ix, iy - 4f, 8f);
+			else MapUi.dot(graphics, icon, ix, iy, 1.6f);
+		}
+		for (SceneMarkers.Label l : scene.labels()) {
 			float[] sp = RENDERER.project(session, l.x(), l.y(), l.z());
 			if (sp == null) continue;
 			float lx = pos[0] + sp[0] * scale, ly = pos[1] + sp[1] * scale;
@@ -168,6 +180,13 @@ public final class MinimapHud {
 			String coords = String.format(Locale.ROOT, "%d, %d, %d", mc.player.getBlockX(), mc.player.getBlockY(), mc.player.getBlockZ());
 			drawLabel(g, font, coords, cx, y, 0xE8ECF2, 0.75f);
 			y += below ? 8 : -8;
+		}
+		if (s.route.active() && s.route.route() != null && !s.route.route().isEmpty()) {
+			double px = mc.player.getX(), pz = mc.player.getZ();
+			String eta = dev.maqueta.client.world.RouteTracker.formatTime(s.route.eta(px, pz, dev.maqueta.client.world.RouteTracker.speed(mc.player)));
+			String txt = "➜ " + dev.maqueta.client.world.RouteTracker.formatDistance(s.route.remaining(px, pz)) + " · " + eta;
+			drawLabel(g, font, txt, cx, y, dev.maqueta.client.render.SceneMarkers.ROUTE | 0x404040, 0.75f);
+			return;
 		}
 		Waypoint t = s.waypoints.target();
 		if (t != null && t.dimension.equals(s.dimension)) {

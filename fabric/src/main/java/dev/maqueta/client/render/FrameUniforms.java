@@ -10,13 +10,15 @@ import org.joml.Vector4f;
 
 /** The {@code MaquetaFrame} uniform block, triple-buffered so the CPU never waits on the GPU. */
 public final class FrameUniforms implements AutoCloseable {
-	public static final int SIZE = new Std140SizeCalculator()
-		.putMat4f().putMat4f()
-		.putVec4().putVec4().putVec4().putVec4().putVec4()
-		.putVec4().putVec4().putVec4().putVec4().putVec4()
-		.get();
 	/** Number of vec4 fields after the two matrices; must match frame.glsl. */
-	public static final int VEC4_COUNT = 10;
+	public static final int VEC4_COUNT = 15;
+	public static final int SIZE = computeSize();
+
+	private static int computeSize() {
+		Std140SizeCalculator calc = new Std140SizeCalculator().putMat4f().putMat4f();
+		for (int i = 0; i < VEC4_COUNT; i++) calc.putVec4();
+		return calc.get();
+	}
 
 	private final MappableRingBuffer ring;
 
