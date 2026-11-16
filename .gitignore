@@ -8,3 +8,6 @@ out/
 *.iml
 .vscode/
 *.log
+
+# Jars compilados (se publican como Releases, no en el repo)
+compilaciones/

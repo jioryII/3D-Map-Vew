@@ -66,3 +66,8 @@ fabricApi {
 		eula = true
 	}
 }
+
+// ./gradlew :fabric:runClientGameTest -PmaquetaVulkan  -> same captures on the Vulkan backend.
+loom.runs.matching { it.name == 'clientGameTest' }.configureEach {
+	if (project.hasProperty('maquetaVulkan')) programArgs '--graphicsBackend', 'vulkan'
+}
